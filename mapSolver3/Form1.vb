@@ -2,8 +2,8 @@
 
     Private Sub Button1_Click(ByVal sender As System.Object, ByVal e As System.EventArgs) Handles Button1.Click
         Try
-            Dim image1 = New Bitmap(TextBox1.Text, True)
-            PictureBox1.Image = enlarge(image1, 10)
+            Dim maze = New Bitmap(TextBox1.Text, True)
+            PictureBox1.Image = enlarge(maze, 10)
 
             Dim compass As New List(Of coordinates)
             compass.Add(New coordinates(0, 1)) 'down
@@ -13,12 +13,12 @@
 
             Dim loc As New coordinates(0, 0) 'current position
             Dim path As New List(Of coordinates)
-            Dim history As New List(Of coordinates)
+            Dim past As New List(Of coordinates)
 
             'FIND STARTING POSITION.
-            For x = 0 To image1.Width - 1
-                For y = 0 To image1.Height - 1
-                    If image1.GetPixel(x, y).ToArgb = Color.Lime.ToArgb Then
+            For x = 0 To maze.Width - 1
+                For y = 0 To maze.Height - 1
+                    If maze.GetPixel(x, y).ToArgb = Color.Lime.ToArgb Then
                         loc = New coordinates(x, y, False)
                         path.Add(loc)
                         GoTo startfound 'exit both for loops
@@ -30,17 +30,17 @@ startfound:
             'TODO: get "contains" method to work properly
 
 
-            Dim area As Integer = image1.Width * image1.Height
+            Dim area As Integer = maze.Width * maze.Height
             Dim i As Integer = 0
             While i < area
 
                 Dim temppath As New List(Of coordinates)
                 For Each Dir As coordinates In compass
                     Dim eval As coordinates = addc(Dir, loc)
-                    If Not (eval.x < 0 Or eval.y < 0 Or contains2(path, eval) Or contains2(history, eval)) Then
-                        If image1.GetPixel(eval.x, eval.y).ToArgb = Color.White.ToArgb Then
+                    If Not (eval.outofbounds(maze) Or hascoords(path, eval) Or hascoords(past, eval)) Then
+                        If maze.GetPixel(eval.x, eval.y).ToArgb = Color.White.ToArgb Then
                             temppath.Add(New coordinates(eval.x, eval.y, i))
-                        ElseIf image1.GetPixel(eval.x, eval.y).ToArgb = Color.Red.ToArgb Then
+                        ElseIf maze.GetPixel(eval.x, eval.y).ToArgb = Color.Red.ToArgb Then
                             i = area 'End While
                         End If
                     End If
@@ -49,52 +49,40 @@ startfound:
                 For Each coord As coordinates In temppath
                     If temppath.Count > 1 Then
                         path.Add(New coordinates(coord.x, coord.y, coord.fn, True))
-                        'path.Add(New coordinates(coord.x, coord.y, False))
-                        'simple fix to later remove branches
                     Else
                         path.Add(New coordinates(coord.x, coord.y, coord.fn, False))
                     End If
                 Next
 
                 If temppath.Count = 0 Then
-                    'dead end or crossroads
-                    'either way, go to the last branch
-                    removebranch(path, history)
+                    removebranch(path, past)
                 End If
-
                 loc = path(path.Count - 1)
-
                 i += 1
             End While
 
 
             'remove unexplored branches
-            ' find them first
-            Dim asdf As New List(Of Integer)
+            Dim uforks As New List(Of Integer) 'useless forks
             For q As Integer = 0 To path.Count - 2
                 If path(q).isFork = path(q + 1).isFork And path(q).fn = path(q + 1).fn Then
-                    asdf.Add(q)
+                    uforks.Add(q)
                 End If
             Next
-            For u As Integer = asdf.Count - 1 To 0 Step -1
-                path.RemoveAt(asdf(u))
+            For u As Integer = uforks.Count - 1 To 0 Step -1
+                path.RemoveAt(uforks(u))
             Next
 
 
             'rasterize
-            For Each item1 As coordinates In history
-                image1.SetPixel(item1.x, item1.y, Color.FromArgb(255, 0, 255))
+            For Each item1 As coordinates In past
+                maze.SetPixel(item1.x, item1.y, Color.FromArgb(255, 0, 255))
             Next
             For Each item1 As coordinates In path
-                If item1.isFork Then
-                    'image1.SetPixel(item1.x, item1.y, Color.FromArgb(0, 128, 0))
-                    image1.SetPixel(item1.x, item1.y, Color.FromArgb(0, 255, 0))
-                Else
-                    image1.SetPixel(item1.x, item1.y, Color.FromArgb(0, 255, 0))
-                End If
+                maze.SetPixel(item1.x, item1.y, Color.FromArgb(0, 128, 0))
                 ListBox1.Items.Add(item1.toString)
             Next
-            PictureBox1.Image = enlarge(image1, 10)
+            PictureBox1.Image = enlarge(maze, 10)
 
         Catch ex As ArgumentException
             MessageBox.Show(ex.ToString)
@@ -127,7 +115,8 @@ startfound:
         Return big
     End Function
 
-    Public Function contains2(ByVal coordlist As List(Of coordinates), ByVal compareitem As coordinates) 'I really need to think of better names
+    Public Function hascoords(ByVal coordlist As List(Of coordinates), ByVal compareitem As coordinates)
+        'because "contains" won't work
         For Each thing As coordinates In coordlist
             If thing.x = compareitem.x And thing.y = compareitem.y Then
                 Return True
@@ -136,7 +125,7 @@ startfound:
         Return False
 
         'make this a do until, while, loop until, for each,
-        'in order to remove every instance
+        'in order to remove every instance, in case the given list has a coordinate listed twice (or more)
     End Function
 
     Private Sub Button2_Click(ByVal sender As System.Object, ByVal e As System.EventArgs) Handles Button2.Click
@@ -150,6 +139,7 @@ startfound:
             MsgBox("error")
         End Try
     End Sub
+
 End Class
 
 Public Class coordinates
@@ -167,6 +157,16 @@ Public Class coordinates
     Public Overrides Function toString() As String
         Return x & ", " & y
     End Function
+    Public Function outofbounds(ByRef img As Bitmap) As Boolean
+        Dim h As Integer = img.Height
+        Dim w As Integer = img.Width
+        If x < 0 Or x > w - 1 Or y < 0 Or y > w - 1 Then
+            Return True
+        Else
+            Return False
+        End If
+    End Function
+
 End Class
 
 
