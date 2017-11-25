@@ -11,24 +11,12 @@
             compass.Add(New coordinates(1, 0)) 'right
             compass.Add(New coordinates(0, -1)) 'up
 
-            Dim loc As New coordinates(0, 0) 'current position
             Dim path As New List(Of coordinates)
             Dim past As New List(Of coordinates)
 
-            'FIND STARTING POSITION.
-            For x = 0 To maze.Width - 1
-                For y = 0 To maze.Height - 1
-                    If maze.GetPixel(x, y).ToArgb = Color.Lime.ToArgb Then
-                        loc = New coordinates(x, y, False)
-                        path.Add(loc)
-                        GoTo startfound 'exit both for loops
-                    End If
-                Next
-            Next
-startfound:
-            'TODO: make this a subroutine
-            'TODO: get "contains" method to work properly
-
+            Dim loc As coordinates = findloc(maze, Color.Lime) 'start, and current position
+            Dim endloc As coordinates = findloc(maze, Color.Red) 'end
+            path.Add(loc)
 
             Dim area As Integer = maze.Width * maze.Height
             Dim i As Integer = 0
@@ -84,10 +72,24 @@ startfound:
             Next
             PictureBox1.Image = enlarge(maze, 10)
 
+            'one extra pixel is added after the solver has reached the end. avoid this by finding the end point before starting.
+
+
         Catch ex As ArgumentException
             MessageBox.Show(ex.ToString)
         End Try
     End Sub
+
+    Public Function findloc(ByRef img As Bitmap, ByVal col As Color) 'option byval color as color?
+        For x = 0 To img.Width - 1
+            For y = 0 To img.Height - 1
+                If img.GetPixel(x, y).ToArgb = col.ToArgb Then
+                    Return New coordinates(x, y)
+                End If
+            Next
+        Next
+        Return New coordinates(-1, -1)
+    End Function
 
     Public Sub removebranch(ByRef list As List(Of coordinates), ByRef hist As List(Of coordinates))
         'use when you hit a dead end
